@@ -71,7 +71,7 @@ if (bookingForm) {
       details || "N/A"
     ];
 
-    const targetPhone = bookingForm.getAttribute("data-phone") || "+19542249454";
+    const targetPhone = bookingForm.getAttribute("data-phone") || "+17542452950";
     const smsLink = `sms:${targetPhone}?body=${encodeURIComponent(bodyLines.join("\n"))}`;
     window.location.href = smsLink;
   });

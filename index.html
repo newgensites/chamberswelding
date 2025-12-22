@@ -443,11 +443,29 @@
     <section class="section section--alt" id="admin">
       <div class="container">
         <div class="section__head">
-          <h2>Admin Booking Desk</h2>
-          <p>Confirm or decline requests and edit the Book a Date & Time schedule so you never double-book.</p>
+          <div>
+            <h2>Admin Booking Desk</h2>
+            <p>Confirm or decline requests and edit the Book a Date & Time schedule so you never double-book.</p>
+          </div>
+          <button class="btn btn--sm btn--ghost admin__lock-btn" type="button" id="adminLockButton">Lock Admin Desk</button>
         </div>
 
-        <div class="admin">
+        <div class="tile admin__lock" id="adminLockPanel">
+          <h3>Admin access</h3>
+          <p class="muted">Enter the 4-digit PIN to unlock the booking tools.</p>
+          <form id="adminGateForm" class="admin__form admin__form--pin">
+            <label>
+              4-digit PIN
+              <input id="adminPin" name="adminPin" type="password" inputmode="numeric" autocomplete="one-time-code" pattern="\\d{4}" maxlength="4" placeholder="••••" required />
+            </label>
+            <div class="form__row form__row--end">
+              <button class="btn" type="submit">Unlock</button>
+              <p class="muted small admin__gate-message" id="adminGateMessage" role="status" aria-live="polite"></p>
+            </div>
+          </form>
+        </div>
+
+        <div class="admin admin--locked" id="adminPanel" aria-hidden="true">
           <div class="tile tile--big">
             <h3>Request queue</h3>
             <p class="muted">Add incoming requests and confirm or decline them on the spot.</p>

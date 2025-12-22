@@ -636,6 +636,26 @@ input:focus, select:focus, textarea:focus{
   gap: 14px;
   align-items: start;
 }
+.admin--locked{ display: none; }
+.admin--unlocked{ display: grid; }
+.admin__lock{
+  margin-bottom: 18px;
+  max-width: 520px;
+}
+.admin__lock.is-hidden{ display: none; }
+.admin__lock-btn{
+  display: none;
+}
+.admin__lock-btn.is-visible{
+  display: inline-flex;
+}
+.admin__form--pin input{
+  letter-spacing: 0.3em;
+  text-align: center;
+}
+.admin__gate-message{
+  min-height: 18px;
+}
 .admin__form{ margin-top: 12px; }
 .admin__table-wrap{
   margin-top: 14px;

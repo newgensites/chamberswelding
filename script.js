@@ -317,9 +317,65 @@ const adminSlots = document.getElementById("adminSlots");
 const adminClosed = document.getElementById("adminClosed");
 const adminSave = document.getElementById("adminSave");
 const adminClear = document.getElementById("adminClear");
+const adminGateForm = document.getElementById("adminGateForm");
+const adminPinInput = document.getElementById("adminPin");
+const adminGateMessage = document.getElementById("adminGateMessage");
+const adminPanel = document.getElementById("adminPanel");
+const adminLockPanel = document.getElementById("adminLockPanel");
+const adminLockButton = document.getElementById("adminLockButton");
+
+const ADMIN_PIN = "4821";
+const ADMIN_UNLOCK_KEY = "cw_admin_unlocked";
 
 const requestStoreKey = "cw_booking_requests";
 let bookingRequests = loadStoredJSON(requestStoreKey, []);
+
+function setAdminAccess(unlocked) {
+  if (adminPanel) {
+    adminPanel.classList.toggle("admin--unlocked", unlocked);
+    adminPanel.classList.toggle("admin--locked", !unlocked);
+    adminPanel.setAttribute("aria-hidden", unlocked ? "false" : "true");
+  }
+  if (adminLockPanel) {
+    adminLockPanel.classList.toggle("is-hidden", unlocked);
+  }
+  if (adminLockButton) {
+    adminLockButton.classList.toggle("is-visible", unlocked);
+  }
+  if (unlocked) {
+    window.localStorage.setItem(ADMIN_UNLOCK_KEY, "true");
+  } else {
+    window.localStorage.removeItem(ADMIN_UNLOCK_KEY);
+  }
+}
+
+if (adminGateForm) {
+  adminGateForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    if (!adminPinInput) return;
+    const entered = adminPinInput.value.trim();
+    if (entered === ADMIN_PIN) {
+      setAdminAccess(true);
+      if (adminGateMessage) adminGateMessage.textContent = "Access granted.";
+      adminGateForm.reset();
+    } else {
+      setAdminAccess(false);
+      if (adminGateMessage) adminGateMessage.textContent = "Incorrect PIN. Try again.";
+      adminPinInput.value = "";
+      adminPinInput.focus();
+    }
+  });
+}
+
+if (adminLockButton) {
+  adminLockButton.addEventListener("click", () => {
+    setAdminAccess(false);
+    if (adminGateMessage) adminGateMessage.textContent = "Admin desk locked.";
+  });
+}
+
+const wasUnlocked = window.localStorage.getItem(ADMIN_UNLOCK_KEY) === "true";
+setAdminAccess(wasUnlocked);
 
 function saveRequests() {
   window.localStorage.setItem(requestStoreKey, JSON.stringify(bookingRequests));

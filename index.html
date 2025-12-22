@@ -54,6 +54,7 @@
           <a href="#locksmith">Locksmith</a>
           <a href="#about">About</a>
           <a href="#contact">Contact</a>
+          <a href="#admin">Admin</a>
           <a class="btn btn--sm btn--ghost" href="tel:+17542452950">Call Now</a>
         </div>
       </nav>
@@ -438,6 +439,101 @@
         </div>
       </div>
     </section>
+
+    <section class="section section--alt" id="admin">
+      <div class="container">
+        <div class="section__head">
+          <h2>Admin Booking Desk</h2>
+          <p>Confirm or decline requests and edit the Book a Date & Time schedule so you never double-book.</p>
+        </div>
+
+        <div class="admin">
+          <div class="tile tile--big">
+            <h3>Request queue</h3>
+            <p class="muted">Add incoming requests and confirm or decline them on the spot.</p>
+
+            <form id="adminRequestForm" class="admin__form">
+              <div class="form__row">
+                <label>
+                  Name
+                  <input id="adminName" name="adminName" type="text" placeholder="Customer name" required />
+                </label>
+                <label>
+                  Phone
+                  <input id="adminPhone" name="adminPhone" type="tel" placeholder="(###) ###-####" />
+                </label>
+              </div>
+
+              <div class="form__row">
+                <label>
+                  Service
+                  <select id="adminService" name="adminService">
+                    <option value="Welding">Welding</option>
+                    <option value="Locksmith">Locksmith</option>
+                    <option value="Both">Both</option>
+                  </select>
+                </label>
+                <label>
+                  Book a Date & Time
+                  <div class="admin__datetime admin__datetime--inline">
+                    <input id="adminRequestDate" name="adminRequestDate" type="date" required />
+                    <select id="adminRequestTime" name="adminRequestTime"></select>
+                  </div>
+                </label>
+              </div>
+
+              <label>
+                Notes
+                <textarea id="adminNotes" name="adminNotes" rows="3" placeholder="Job details or reminders"></textarea>
+              </label>
+
+              <div class="form__row form__row--end">
+                <button class="btn" type="submit">Add to Queue</button>
+                <p class="muted small">Requests save in this browser so you can manage them later.</p>
+              </div>
+            </form>
+
+            <div class="admin__table-wrap">
+              <table class="admin__table" id="adminRequestTable">
+                <thead>
+                  <tr>
+                    <th>Request</th>
+                    <th>Book a Date & Time</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="tile tile--big">
+            <h3>Availability editor</h3>
+            <p class="muted">Direct access to the calendar so you can block or open times instantly.</p>
+
+            <form id="adminAvailabilityForm" class="admin__form" aria-label="Availability editor">
+              <label>
+                Date
+                <input id="adminDate" name="adminDate" type="date" required />
+              </label>
+
+              <div class="admin__slots" id="adminSlots"></div>
+
+              <label class="admin__checkbox">
+                <input id="adminClosed" type="checkbox" />
+                Mark entire day as unavailable
+              </label>
+
+              <div class="form__row form__row--end">
+                <button class="btn btn--ghost btn--sm" type="button" id="adminClear">Clear overrides</button>
+                <button class="btn btn--sm" type="button" id="adminSave">Save to Calendar</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </section>
   </main>
 
   <!-- Footer -->
@@ -453,6 +549,7 @@
         <a href="#work">Work</a>
         <a href="#locksmith">Locksmith</a>
         <a href="#contact">Contact</a>
+        <a href="#admin">Admin</a>
       </div>
     </div>
     <div class="container footer__bottom">

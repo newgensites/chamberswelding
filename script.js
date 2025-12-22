@@ -33,6 +33,116 @@ document.addEventListener("click", (e) => {
 const year = document.getElementById("year");
 if (year) year.textContent = new Date().getFullYear();
 
+const bookingUI = {
+  renderCalendar: null,
+  renderTimes: null,
+  selectedKey: null
+};
+
+function toKey(date) {
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const dd = String(date.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function fromKey(key) {
+  const [year, month, day] = key.split("-").map(Number);
+  return new Date(year, month - 1, day);
+}
+
+function formatDisplayDate(date) {
+  return date.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+}
+
+function formatTimeLabel(time) {
+  const [hour, minute] = time.split(":").map(Number);
+  const temp = new Date();
+  temp.setHours(hour, minute, 0, 0);
+  return temp.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+}
+
+function loadStoredJSON(key, fallback) {
+  const raw = window.localStorage.getItem(key);
+  if (!raw) return fallback;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return fallback;
+  }
+}
+
+const bookingControls = {
+  today: new Date(),
+  baseSlots: ["09:00", "10:30", "12:00", "13:30", "15:00", "16:30"],
+  availability: new Map(),
+  overrides: loadStoredJSON("cw_booking_overrides", {})
+};
+
+function saveOverrides() {
+  window.localStorage.setItem("cw_booking_overrides", JSON.stringify(bookingControls.overrides));
+}
+
+function buildAvailability(days = 28) {
+  bookingControls.availability.clear();
+  for (let i = 0; i < days; i += 1) {
+    const date = new Date(bookingControls.today);
+    date.setDate(bookingControls.today.getDate() + i);
+    const day = date.getDay();
+    const key = toKey(date);
+
+    if (day === 0) {
+      bookingControls.availability.set(key, { available: [], booked: bookingControls.baseSlots, closed: true });
+      continue;
+    }
+
+    const override = bookingControls.overrides[key] || {};
+    const closed = Boolean(override.closed);
+    const booked = Array.isArray(override.booked) ? override.booked : [];
+    const available = closed ? [] : bookingControls.baseSlots.filter(slot => !booked.includes(slot));
+
+    bookingControls.availability.set(key, { available, booked, closed });
+  }
+}
+
+function refreshBookingUI() {
+  if (bookingUI.renderCalendar) bookingUI.renderCalendar();
+  if (bookingUI.selectedKey && bookingUI.renderTimes) {
+    const selectedDate = fromKey(bookingUI.selectedKey);
+    const info = bookingControls.availability.get(bookingUI.selectedKey);
+    bookingUI.renderTimes(selectedDate, info);
+  }
+}
+
+function setOverride(key, override) {
+  if (!override || (!override.closed && (!override.booked || override.booked.length === 0))) {
+    delete bookingControls.overrides[key];
+  } else {
+    bookingControls.overrides[key] = override;
+  }
+  saveOverrides();
+  buildAvailability();
+  refreshBookingUI();
+}
+
+function addBookedSlot(key, time) {
+  if (!key || !time) return;
+  const current = bookingControls.overrides[key] || {};
+  const booked = new Set(current.booked || []);
+  booked.add(time);
+  setOverride(key, { ...current, booked: Array.from(booked) });
+}
+
+function removeBookedSlot(key, time) {
+  if (!key || !time) return;
+  const current = bookingControls.overrides[key];
+  if (!current || !Array.isArray(current.booked)) return;
+  const booked = current.booked.filter(slot => slot !== time);
+  setOverride(key, { ...current, booked });
+}
+
+buildAvailability();
+
 // Booking form -> opens SMS app with filled details
 const bookingForm = document.getElementById("bookingForm");
 if (bookingForm) {
@@ -45,54 +155,11 @@ if (bookingForm) {
   const bookingSelected = bookingForm.querySelector("#bookingSelected");
   const bookingTakenWrap = bookingForm.querySelector("#bookingTakenWrap");
 
-  const today = new Date();
-  const availability = new Map();
-  const baseSlots = ["09:00", "10:30", "12:00", "13:30", "15:00", "16:30"];
-
-  function toKey(date) {
-    const yyyy = date.getFullYear();
-    const mm = String(date.getMonth() + 1).padStart(2, "0");
-    const dd = String(date.getDate()).padStart(2, "0");
-    return `${yyyy}-${mm}-${dd}`;
-  }
-
-  function formatDisplayDate(date) {
-    return date.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
-  }
-
-  function formatTimeLabel(time) {
-    const [hour, minute] = time.split(":").map(Number);
-    const temp = new Date();
-    temp.setHours(hour, minute, 0, 0);
-    return temp.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
-  }
-
-  function buildAvailability(days = 28) {
-    for (let i = 0; i < days; i += 1) {
-      const date = new Date(today);
-      date.setDate(today.getDate() + i);
-      const day = date.getDay();
-      const key = toKey(date);
-
-      if (day === 0) {
-        availability.set(key, { available: [], booked: [] });
-        continue;
-      }
-
-      const booked = [];
-      if (date.getDate() % 3 === 0) booked.push("12:00");
-      if (date.getDate() % 5 === 0) booked.push("15:00");
-
-      const available = baseSlots.filter(slot => !booked.includes(slot));
-      availability.set(key, { available, booked });
-    }
-  }
-
   function renderCalendar() {
     if (!bookingGrid || !bookingMonth) return;
 
-    const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
-    const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+    const monthStart = new Date(bookingControls.today.getFullYear(), bookingControls.today.getMonth(), 1);
+    const monthEnd = new Date(bookingControls.today.getFullYear(), bookingControls.today.getMonth() + 1, 0);
     bookingMonth.textContent = monthStart.toLocaleDateString(undefined, { month: "long", year: "numeric" });
 
     bookingGrid.innerHTML = "";
@@ -112,10 +179,10 @@ if (bookingForm) {
     }
 
     for (let day = 1; day <= monthEnd.getDate(); day += 1) {
-      const date = new Date(today.getFullYear(), today.getMonth(), day);
+      const date = new Date(bookingControls.today.getFullYear(), bookingControls.today.getMonth(), day);
       const key = toKey(date);
-      const info = availability.get(key);
-      const isPast = date < new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      const info = bookingControls.availability.get(key);
+      const isPast = date < new Date(bookingControls.today.getFullYear(), bookingControls.today.getMonth(), bookingControls.today.getDate());
       const hasAvailability = info && info.available.length > 0;
 
       const button = document.createElement("button");
@@ -127,7 +194,7 @@ if (bookingForm) {
       button.textContent = day.toString();
       button.setAttribute("data-date", key);
       button.setAttribute("aria-pressed", "false");
-      button.addEventListener("click", () => selectDate(date, info));
+      button.addEventListener("click", () => selectDate(date));
       bookingGrid.appendChild(button);
     }
   }
@@ -177,22 +244,25 @@ if (bookingForm) {
     });
   }
 
-  function selectDate(date, info) {
+  function selectDate(date) {
     if (!dateInput) return;
     clearSelectedDay();
     const key = toKey(date);
+    const info = bookingControls.availability.get(key);
     const selected = bookingGrid?.querySelector(`[data-date="${key}"]`);
     if (selected) {
       selected.classList.add("is-selected");
       selected.setAttribute("aria-pressed", "true");
     }
+    bookingUI.selectedKey = key;
     dateInput.value = key;
     if (timeInput) timeInput.value = "";
     renderTimes(date, info);
   }
 
-  buildAvailability();
   renderCalendar();
+  bookingUI.renderCalendar = renderCalendar;
+  bookingUI.renderTimes = renderTimes;
   if (bookingTakenWrap) bookingTakenWrap.style.display = "none";
 
   bookingForm.addEventListener("submit", (e) => {
@@ -239,6 +309,241 @@ if (bookingForm) {
     window.location.href = smsLink;
   });
 }
+
+const adminRequestForm = document.getElementById("adminRequestForm");
+const adminRequestTable = document.getElementById("adminRequestTable");
+const adminDateInput = document.getElementById("adminDate");
+const adminSlots = document.getElementById("adminSlots");
+const adminClosed = document.getElementById("adminClosed");
+const adminSave = document.getElementById("adminSave");
+const adminClear = document.getElementById("adminClear");
+
+const requestStoreKey = "cw_booking_requests";
+let bookingRequests = loadStoredJSON(requestStoreKey, []);
+
+function saveRequests() {
+  window.localStorage.setItem(requestStoreKey, JSON.stringify(bookingRequests));
+}
+
+function buildTimeOptions(select, selectedValue) {
+  select.innerHTML = "";
+  bookingControls.baseSlots.forEach(slot => {
+    const option = document.createElement("option");
+    option.value = slot;
+    option.textContent = formatTimeLabel(slot);
+    if (slot === selectedValue) option.selected = true;
+    select.appendChild(option);
+  });
+}
+
+function updateRequest(id, updates) {
+  bookingRequests = bookingRequests.map(request => {
+    if (request.id !== id) return request;
+    return { ...request, ...updates };
+  });
+  saveRequests();
+}
+
+function renderRequestTable() {
+  if (!adminRequestTable) return;
+  const tbody = adminRequestTable.querySelector("tbody");
+  if (!tbody) return;
+  tbody.innerHTML = "";
+
+  bookingRequests.forEach(request => {
+    const row = document.createElement("tr");
+    row.dataset.requestId = request.id;
+
+    const nameCell = document.createElement("td");
+    nameCell.innerHTML = `
+      <div class="admin__name">${request.name || "Unknown"}</div>
+      <div class="admin__meta">${request.phone || "No phone"} • ${request.service || "Service"}</div>
+      ${request.notes ? `<div class="admin__notes">${request.notes}</div>` : ""}
+    `;
+
+    const dateCell = document.createElement("td");
+    const dateInput = document.createElement("input");
+    dateInput.type = "date";
+    dateInput.value = request.date || "";
+    dateInput.className = "admin__input";
+    dateInput.addEventListener("change", () => {
+      const previousDate = request.date;
+      request.date = dateInput.value;
+      updateRequest(request.id, { date: request.date });
+      if (request.status === "confirmed") {
+        removeBookedSlot(previousDate, request.time);
+        addBookedSlot(request.date, request.time);
+      }
+    });
+
+    const timeSelect = document.createElement("select");
+    timeSelect.className = "admin__input";
+    buildTimeOptions(timeSelect, request.time);
+    timeSelect.addEventListener("change", () => {
+      const previousTime = request.time;
+      request.time = timeSelect.value;
+      updateRequest(request.id, { time: request.time });
+      if (request.status === "confirmed") {
+        removeBookedSlot(request.date, previousTime);
+        addBookedSlot(request.date, request.time);
+      }
+    });
+
+    const dateWrap = document.createElement("div");
+    dateWrap.className = "admin__datetime";
+    dateWrap.appendChild(dateInput);
+    dateWrap.appendChild(timeSelect);
+    dateCell.appendChild(dateWrap);
+
+    const statusCell = document.createElement("td");
+    const status = document.createElement("span");
+    status.className = `admin__status admin__status--${request.status || "pending"}`;
+    status.textContent = request.status || "pending";
+    statusCell.appendChild(status);
+
+    const actionsCell = document.createElement("td");
+    actionsCell.className = "admin__actions";
+
+    const confirmButton = document.createElement("button");
+    confirmButton.type = "button";
+    confirmButton.className = "btn btn--sm";
+    confirmButton.textContent = "Confirm";
+    confirmButton.addEventListener("click", () => {
+      const previousStatus = request.status;
+      request.status = "confirmed";
+      updateRequest(request.id, { status: "confirmed" });
+      if (previousStatus !== "confirmed") addBookedSlot(request.date, request.time);
+      renderRequestTable();
+    });
+
+    const declineButton = document.createElement("button");
+    declineButton.type = "button";
+    declineButton.className = "btn btn--sm btn--ghost";
+    declineButton.textContent = "Decline";
+    declineButton.addEventListener("click", () => {
+      const previousStatus = request.status;
+      request.status = "declined";
+      updateRequest(request.id, { status: "declined" });
+      if (previousStatus === "confirmed") removeBookedSlot(request.date, request.time);
+      renderRequestTable();
+    });
+
+    const removeButton = document.createElement("button");
+    removeButton.type = "button";
+    removeButton.className = "btn btn--sm btn--ghost";
+    removeButton.textContent = "Remove";
+    removeButton.addEventListener("click", () => {
+      if (request.status === "confirmed") removeBookedSlot(request.date, request.time);
+      bookingRequests = bookingRequests.filter(item => item.id !== request.id);
+      saveRequests();
+      renderRequestTable();
+    });
+
+    actionsCell.appendChild(confirmButton);
+    actionsCell.appendChild(declineButton);
+    actionsCell.appendChild(removeButton);
+
+    row.appendChild(nameCell);
+    row.appendChild(dateCell);
+    row.appendChild(statusCell);
+    row.appendChild(actionsCell);
+    tbody.appendChild(row);
+  });
+}
+
+if (adminRequestForm) {
+  const adminName = adminRequestForm.querySelector("#adminName");
+  const adminPhone = adminRequestForm.querySelector("#adminPhone");
+  const adminService = adminRequestForm.querySelector("#adminService");
+  const adminDate = adminRequestForm.querySelector("#adminRequestDate");
+  const adminTime = adminRequestForm.querySelector("#adminRequestTime");
+  const adminNotes = adminRequestForm.querySelector("#adminNotes");
+
+  if (adminTime) buildTimeOptions(adminTime, bookingControls.baseSlots[0]);
+
+  adminRequestForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const newRequest = {
+      id: `req-${Date.now()}`,
+      name: adminName?.value.trim(),
+      phone: adminPhone?.value.trim(),
+      service: adminService?.value,
+      date: adminDate?.value,
+      time: adminTime?.value,
+      notes: adminNotes?.value.trim(),
+      status: "pending"
+    };
+    bookingRequests = [newRequest, ...bookingRequests];
+    saveRequests();
+    adminRequestForm.reset();
+    if (adminTime) buildTimeOptions(adminTime, bookingControls.baseSlots[0]);
+    renderRequestTable();
+  });
+}
+
+function renderAdminAvailability() {
+  if (!adminDateInput || !adminSlots || !adminClosed) return;
+  const key = adminDateInput.value;
+  if (!key) return;
+  const override = bookingControls.overrides[key] || {};
+  adminClosed.checked = Boolean(override.closed);
+  adminSlots.innerHTML = "";
+
+  bookingControls.baseSlots.forEach(slot => {
+    const label = document.createElement("label");
+    label.className = "admin__slot";
+
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.value = slot;
+    checkbox.checked = (override.booked || []).includes(slot) || Boolean(override.closed);
+    checkbox.disabled = adminClosed.checked;
+
+    const text = document.createElement("span");
+    text.textContent = formatTimeLabel(slot);
+
+    label.appendChild(checkbox);
+    label.appendChild(text);
+    adminSlots.appendChild(label);
+  });
+}
+
+if (adminDateInput) {
+  adminDateInput.value = toKey(bookingControls.today);
+  adminDateInput.addEventListener("change", renderAdminAvailability);
+  renderAdminAvailability();
+}
+
+if (adminClosed) {
+  adminClosed.addEventListener("change", () => {
+    renderAdminAvailability();
+  });
+}
+
+if (adminSave) {
+  adminSave.addEventListener("click", () => {
+    if (!adminDateInput || !adminSlots) return;
+    const key = adminDateInput.value;
+    const checked = Array.from(adminSlots.querySelectorAll("input[type=\"checkbox\"]"))
+      .filter(input => input.checked)
+      .map(input => input.value);
+    const closed = adminClosed ? adminClosed.checked : false;
+    const booked = closed ? [...bookingControls.baseSlots] : checked;
+    setOverride(key, { booked, closed });
+    renderAdminAvailability();
+  });
+}
+
+if (adminClear) {
+  adminClear.addEventListener("click", () => {
+    if (!adminDateInput) return;
+    const key = adminDateInput.value;
+    setOverride(key, null);
+    renderAdminAvailability();
+  });
+}
+
+renderRequestTable();
 
 // Quote form -> opens email app with filled details
 const form = document.getElementById("quoteForm");

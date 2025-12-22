@@ -333,6 +333,58 @@
           </div>
 
           <div class="tile tile--big">
+            <h3>Book a Date & Time</h3>
+            <p class="muted">Send a booking request straight to our phone so we can confirm availability.</p>
+            <form id="bookingForm" data-phone="+19542249454">
+              <div class="form__row">
+                <label>
+                  Name
+                  <input name="name" type="text" placeholder="Your name" autocomplete="name" required />
+                </label>
+                <label>
+                  Phone
+                  <input name="phone" type="tel" placeholder="(###) ###-####" autocomplete="tel" required />
+                </label>
+              </div>
+
+              <div class="form__row">
+                <label>
+                  Preferred date
+                  <input name="date" type="date" required />
+                </label>
+                <label>
+                  Preferred time
+                  <input name="time" type="time" step="900" required />
+                </label>
+              </div>
+
+              <label>
+                Service
+                <select name="service">
+                  <option value="Welding">Welding</option>
+                  <option value="Locksmith">Locksmith</option>
+                  <option value="Both">Both</option>
+                </select>
+              </label>
+
+              <label>
+                Address or area
+                <input name="location" type="text" placeholder="City or job address" required />
+              </label>
+
+              <label>
+                Job details
+                <textarea name="details" rows="4" placeholder="Brief description, materials, measurements, etc."></textarea>
+              </label>
+
+              <div class="form__row form__row--end">
+                <button class="btn" type="submit">Send Booking Text</button>
+                <p class="muted small">Opens your text app and sends the request to (954) 224-9454.</p>
+              </div>
+            </form>
+          </div>
+
+          <div class="tile tile--big">
             <h3>Quick Request</h3>
             <form id="quoteForm">
               <div class="form__row">

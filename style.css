@@ -454,7 +454,7 @@ h1{
 
 .contact{
   display:grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: 14px;
 }
 .contact__rows{ display:flex; flex-direction: column; gap: 10px; margin-top: 10px; }

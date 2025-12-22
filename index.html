@@ -347,16 +347,33 @@
                 </label>
               </div>
 
-              <div class="form__row">
-                <label>
-                  Preferred date
-                  <input name="date" type="date" required />
-                </label>
-                <label>
-                  Preferred time
-                  <input name="time" type="time" step="900" required />
-                </label>
+              <div class="booking__scheduler">
+                <div class="calendar" id="bookingCalendar" aria-label="Availability calendar">
+                  <div class="calendar__header">
+                    <div>
+                      <div class="calendar__title">Availability</div>
+                      <div class="calendar__month" id="bookingMonth"></div>
+                    </div>
+                    <div class="calendar__legend" aria-hidden="true">
+                      <span class="legend__item"><span class="legend__dot legend__dot--available"></span>Available</span>
+                      <span class="legend__item"><span class="legend__dot legend__dot--unavailable"></span>Unavailable</span>
+                    </div>
+                  </div>
+                  <div class="calendar__grid" id="bookingGrid"></div>
+                </div>
+
+                <div class="times">
+                  <div class="times__title">Available booking hours</div>
+                  <p class="muted small" id="bookingSelected">Select a date to see open times.</p>
+                  <div class="times__slots" id="bookingTimes" role="list"></div>
+                  <div class="times__taken" id="bookingTakenWrap">
+                    <div class="times__label">Taken for this date</div>
+                    <ul id="bookingTaken"></ul>
+                  </div>
+                </div>
               </div>
+              <input name="date" id="bookingDate" type="hidden" required />
+              <input name="time" id="bookingTime" type="hidden" required />
 
               <label>
                 Service

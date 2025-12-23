@@ -290,6 +290,11 @@ if (bookingForm) {
     const location = (data.get("location") || "").toString().trim();
     const details = (data.get("details") || "").toString().trim();
 
+    const combinedNotes = [
+      location ? `Location: ${location}` : "",
+      details ? `Details: ${details}` : ""
+    ].filter(Boolean).join(" • ");
+
     const bodyLines = [
       "Booking Request - Chambers Welding | VASEAN",
       "",
@@ -306,6 +311,16 @@ if (bookingForm) {
 
     const targetPhone = bookingForm.getAttribute("data-phone") || "+17542452950";
     const smsLink = `sms:${targetPhone}?body=${encodeURIComponent(bodyLines.join("\n"))}`;
+
+    addRequestToQueue({
+      name,
+      phone,
+      service,
+      date,
+      time,
+      notes: combinedNotes,
+      status: "pending"
+    });
     window.location.href = smsLink;
   });
 }
@@ -379,6 +394,24 @@ setAdminAccess(wasUnlocked);
 
 function saveRequests() {
   window.localStorage.setItem(requestStoreKey, JSON.stringify(bookingRequests));
+}
+
+function addRequestToQueue(request) {
+  const normalized = {
+    id: request.id || `req-${Date.now()}`,
+    name: (request.name || "").trim(),
+    phone: (request.phone || "").trim(),
+    service: request.service || "Welding",
+    date: request.date || "",
+    time: request.time || "",
+    notes: (request.notes || "").trim(),
+    status: request.status || "pending"
+  };
+
+  bookingRequests = [normalized, ...bookingRequests];
+  saveRequests();
+  renderRequestTable();
+  return normalized;
 }
 
 function buildTimeOptions(select, selectedValue) {
@@ -519,7 +552,7 @@ if (adminRequestForm) {
 
   adminRequestForm.addEventListener("submit", (event) => {
     event.preventDefault();
-    const newRequest = {
+    addRequestToQueue({
       id: `req-${Date.now()}`,
       name: adminName?.value.trim(),
       phone: adminPhone?.value.trim(),
@@ -528,12 +561,9 @@ if (adminRequestForm) {
       time: adminTime?.value,
       notes: adminNotes?.value.trim(),
       status: "pending"
-    };
-    bookingRequests = [newRequest, ...bookingRequests];
-    saveRequests();
+    });
     adminRequestForm.reset();
     if (adminTime) buildTimeOptions(adminTime, bookingControls.baseSlots[0]);
-    renderRequestTable();
   });
 }
 

@@ -630,35 +630,3 @@ if (adminClear) {
 }
 
 renderRequestTable();
-
-// Quote form -> opens email app with filled details
-const form = document.getElementById("quoteForm");
-if (form) {
-  form.addEventListener("submit", (e) => {
-    e.preventDefault();
-    const data = new FormData(form);
-
-    const name = (data.get("name") || "").toString().trim();
-    const phone = (data.get("phone") || "").toString().trim();
-    const service = (data.get("service") || "Welding").toString().trim();
-    const details = (data.get("details") || "").toString().trim();
-
-    const subject = `Quote Request - ${service}${name ? " - " + name : ""}`;
-    const bodyLines = [
-      "Hi Chambers Welding | VASEAN,",
-      "",
-      "I’d like a quote for:",
-      `Service: ${service}`,
-      `Name: ${name || "N/A"}`,
-      `Phone: ${phone || "N/A"}`,
-      "",
-      "Details:",
-      details || "N/A",
-      "",
-      "Thank you!"
-    ];
-
-    const mailto = `mailto:soliv3@gmail.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(bodyLines.join("\n"))}`;
-    window.location.href = mailto;
-  });
-}

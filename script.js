@@ -114,15 +114,29 @@ function refreshBookingUI() {
   }
 }
 
-function setOverride(key, override) {
+function handleAvailabilityChange(options = {}) {
+  const { skipAdminRender = false, preserveAdminSelection = false } = options;
+  buildAvailability();
+  refreshBookingUI();
+  if (!skipAdminRender) {
+    renderAdminAvailability({ preserveSelection: preserveAdminSelection });
+  }
+  renderRequestTable();
+  if (adminRequestForm) {
+    const adminTime = adminRequestForm.querySelector("#adminRequestTime");
+    const info = getAvailabilityForKey(adminDateInput?.value || "");
+    if (adminTime) buildTimeOptions(adminTime, adminTime.value, info);
+  }
+}
+
+function setOverride(key, override, options = {}) {
   if (!override || (!override.closed && (!override.booked || override.booked.length === 0))) {
     delete bookingControls.overrides[key];
   } else {
     bookingControls.overrides[key] = override;
   }
   saveOverrides();
-  buildAvailability();
-  refreshBookingUI();
+  handleAvailabilityChange(options);
 }
 
 function addBookedSlot(key, time) {
@@ -415,12 +429,35 @@ function addRequestToQueue(request) {
   return normalized;
 }
 
-function buildTimeOptions(select, selectedValue) {
+function getAvailabilityForKey(key) {
+  if (!key) {
+    return { available: bookingControls.baseSlots, booked: [], closed: false };
+  }
+  return bookingControls.availability.get(key) || { available: bookingControls.baseSlots, booked: [], closed: false };
+}
+
+function buildTimeOptions(select, selectedValue, availabilityInfo = null) {
   select.innerHTML = "";
+  const info = availabilityInfo || getAvailabilityForKey(adminDateInput?.value || "");
+
+  if (info.closed) {
+    const option = document.createElement("option");
+    option.value = "";
+    option.textContent = "Day unavailable";
+    option.disabled = true;
+    option.selected = true;
+    select.appendChild(option);
+    select.disabled = true;
+    return;
+  }
+
+  select.disabled = false;
   bookingControls.baseSlots.forEach(slot => {
     const option = document.createElement("option");
     option.value = slot;
     option.textContent = formatTimeLabel(slot);
+    const isAvailable = info.available.includes(slot);
+    option.disabled = !isAvailable;
     if (slot === selectedValue) option.selected = true;
     select.appendChild(option);
   });
@@ -458,17 +495,25 @@ function renderRequestTable() {
     dateInput.className = "admin__input";
     dateInput.addEventListener("change", () => {
       const previousDate = request.date;
+      const previousTime = request.time;
       request.date = dateInput.value;
-      updateRequest(request.id, { date: request.date });
+      const availabilityInfo = getAvailabilityForKey(request.date);
+      buildTimeOptions(timeSelect, request.time, availabilityInfo);
+      if (availabilityInfo.closed) {
+        request.time = "";
+        updateRequest(request.id, { date: request.date, time: request.time });
+      } else {
+        updateRequest(request.id, { date: request.date });
+      }
       if (request.status === "confirmed") {
-        removeBookedSlot(previousDate, request.time);
+        removeBookedSlot(previousDate, previousTime);
         addBookedSlot(request.date, request.time);
       }
     });
 
     const timeSelect = document.createElement("select");
     timeSelect.className = "admin__input";
-    buildTimeOptions(timeSelect, request.time);
+    buildTimeOptions(timeSelect, request.time, getAvailabilityForKey(request.date));
     timeSelect.addEventListener("change", () => {
       const previousTime = request.time;
       request.time = timeSelect.value;
@@ -549,22 +594,28 @@ if (adminRequestForm) {
   const adminTime = adminRequestForm.querySelector("#adminRequestTime");
   const adminNotes = adminRequestForm.querySelector("#adminNotes");
 
-  if (adminTime) buildTimeOptions(adminTime, bookingControls.baseSlots[0]);
+  if (adminDate) adminDate.value = adminDateInput?.value || toKey(bookingControls.today);
+  if (adminTime) buildTimeOptions(adminTime, bookingControls.baseSlots[0], getAvailabilityForKey(adminDate?.value));
 
   adminRequestForm.addEventListener("submit", (event) => {
     event.preventDefault();
+    const dateKey = adminDate?.value;
+    const info = getAvailabilityForKey(dateKey);
+    const selectedTime = info.closed ? "" : adminTime?.value;
+
     addRequestToQueue({
       id: `req-${Date.now()}`,
       name: adminName?.value.trim(),
       phone: adminPhone?.value.trim(),
       service: adminService?.value,
-      date: adminDate?.value,
-      time: adminTime?.value,
+      date: dateKey,
+      time: selectedTime,
       notes: adminNotes?.value.trim(),
       status: "pending"
     });
     adminRequestForm.reset();
-    if (adminTime) buildTimeOptions(adminTime, bookingControls.baseSlots[0]);
+    const adminTime = adminRequestForm.querySelector("#adminRequestTime");
+    if (adminTime) buildTimeOptions(adminTime, bookingControls.baseSlots[0], getAvailabilityForKey(adminDate?.value));
   });
 }
 
@@ -610,7 +661,13 @@ function renderAdminAvailability(options = {}) {
 
 if (adminDateInput) {
   adminDateInput.value = toKey(bookingControls.today);
-  adminDateInput.addEventListener("change", renderAdminAvailability);
+  adminDateInput.addEventListener("change", () => {
+    renderAdminAvailability();
+    if (adminRequestForm) {
+      const adminTime = adminRequestForm.querySelector("#adminRequestTime");
+      if (adminTime) buildTimeOptions(adminTime, adminTime.value, getAvailabilityForKey(adminDateInput.value));
+    }
+  });
   renderAdminAvailability();
 }
 
@@ -629,7 +686,7 @@ if (adminSave) {
       .map(input => input.value);
     const closed = adminClosed ? adminClosed.checked : false;
     const booked = closed ? [...bookingControls.baseSlots] : checked;
-    setOverride(key, { booked, closed });
+    setOverride(key, { booked, closed }, { skipAdminRender: true });
     renderAdminAvailability();
   });
 }
@@ -638,7 +695,7 @@ if (adminClear) {
   adminClear.addEventListener("click", () => {
     if (!adminDateInput) return;
     const key = adminDateInput.value;
-    setOverride(key, null);
+    setOverride(key, null, { skipAdminRender: true });
     renderAdminAvailability();
   });
 }

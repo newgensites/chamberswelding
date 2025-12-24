@@ -359,6 +359,113 @@ const ADMIN_UNLOCK_KEY = "cw_admin_unlocked";
 
 const requestStoreKey = "cw_booking_requests";
 let bookingRequests = loadStoredJSON(requestStoreKey, []);
+const reminderStoreKey = "cw_booking_reminders";
+let reminderQueue = loadStoredJSON(reminderStoreKey, []);
+let reminderIntervalId = null;
+
+function saveReminders() {
+  window.localStorage.setItem(reminderStoreKey, JSON.stringify(reminderQueue));
+}
+
+function toDateTime(dateKey, time) {
+  if (!dateKey || !time) return null;
+  const [year, month, day] = dateKey.split("-").map(Number);
+  const [hour, minute] = time.split(":").map(Number);
+  if ([year, month, day, hour, minute].some(Number.isNaN)) return null;
+  return new Date(year, month - 1, day, hour, minute);
+}
+
+function removeReminderForRequest(requestId) {
+  const originalLength = reminderQueue.length;
+  reminderQueue = reminderQueue.filter(reminder => reminder.requestId !== requestId);
+  if (originalLength !== reminderQueue.length) {
+    saveReminders();
+  }
+}
+
+function scheduleReminderForRequest(request) {
+  if (!request?.id) return;
+  removeReminderForRequest(request.id);
+  const eventDate = toDateTime(request.date, request.time);
+  if (!eventDate) return;
+
+  const reminderTime = new Date(eventDate.getTime() - 45 * 60 * 1000);
+  if (reminderTime.getTime() <= Date.now()) return;
+
+  const message = `Reminder: ${request.service || "Booking"} with ${request.name || "client"} at ${formatDisplayDate(fromKey(request.date))} ${formatTimeLabel(request.time)}`;
+  reminderQueue.push({
+    id: `rem-${request.id}`,
+    requestId: request.id,
+    fireAt: reminderTime.getTime(),
+    message
+  });
+  saveReminders();
+}
+
+function deliverReminder(reminder) {
+  const title = "Booking Reminder";
+  const body = reminder.message || "Upcoming booking";
+
+  if ("Notification" in window) {
+    if (Notification.permission === "granted") {
+      new Notification(title, { body });
+      return;
+    }
+    if (Notification.permission === "default") {
+      Notification.requestPermission().then(permission => {
+        if (permission === "granted") {
+          new Notification(title, { body });
+        } else {
+          window.alert(body);
+        }
+      });
+      return;
+    }
+  }
+
+  window.alert(body);
+}
+
+function processReminders() {
+  const now = Date.now();
+  const remaining = [];
+
+  reminderQueue.forEach(reminder => {
+    if (reminder.fireAt <= now) {
+      deliverReminder(reminder);
+    } else {
+      remaining.push(reminder);
+    }
+  });
+
+  reminderQueue = remaining;
+  saveReminders();
+}
+
+function startReminderClock() {
+  if (reminderIntervalId) return;
+  if ("Notification" in window && Notification.permission === "default") {
+    Notification.requestPermission();
+  }
+  processReminders();
+  reminderIntervalId = window.setInterval(processReminders, 60 * 1000);
+}
+
+function syncRemindersWithRequests() {
+  const confirmedIds = new Set();
+
+  bookingRequests.forEach(request => {
+    if (request.status === "confirmed") {
+      confirmedIds.add(request.id);
+      scheduleReminderForRequest(request);
+    } else {
+      removeReminderForRequest(request.id);
+    }
+  });
+
+  reminderQueue = reminderQueue.filter(reminder => confirmedIds.has(reminder.requestId));
+  saveReminders();
+}
 
 function setAdminAccess(unlocked) {
   if (adminPanel) {
@@ -508,6 +615,7 @@ function renderRequestTable() {
       if (request.status === "confirmed") {
         removeBookedSlot(previousDate, previousTime);
         addBookedSlot(request.date, request.time);
+        scheduleReminderForRequest(request);
       }
     });
 
@@ -521,6 +629,7 @@ function renderRequestTable() {
       if (request.status === "confirmed") {
         removeBookedSlot(request.date, previousTime);
         addBookedSlot(request.date, request.time);
+        scheduleReminderForRequest(request);
       }
     });
 
@@ -548,6 +657,7 @@ function renderRequestTable() {
       request.status = "confirmed";
       updateRequest(request.id, { status: "confirmed" });
       if (previousStatus !== "confirmed") addBookedSlot(request.date, request.time);
+      scheduleReminderForRequest(request);
       renderRequestTable();
     });
 
@@ -560,6 +670,7 @@ function renderRequestTable() {
       request.status = "declined";
       updateRequest(request.id, { status: "declined" });
       if (previousStatus === "confirmed") removeBookedSlot(request.date, request.time);
+      removeReminderForRequest(request.id);
       renderRequestTable();
     });
 
@@ -571,6 +682,7 @@ function renderRequestTable() {
       if (request.status === "confirmed") removeBookedSlot(request.date, request.time);
       bookingRequests = bookingRequests.filter(item => item.id !== request.id);
       saveRequests();
+      removeReminderForRequest(request.id);
       renderRequestTable();
     });
 
@@ -700,4 +812,6 @@ if (adminClear) {
   });
 }
 
+syncRemindersWithRequests();
+startReminderClock();
 renderRequestTable();

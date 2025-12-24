@@ -284,8 +284,9 @@ if (bookingForm) {
 
     const name = (data.get("name") || "").toString().trim();
     const phone = (data.get("phone") || "").toString().trim();
-    const date = (data.get("date") || "").toString().trim();
-    const time = (data.get("time") || "").toString().trim();
+    const date = (data.get("date") || bookingUI.selectedKey || "").toString().trim();
+    const selectedTimeButton = bookingTimes?.querySelector(".times__slot.is-selected");
+    const time = (data.get("time") || selectedTimeButton?.getAttribute("data-time") || "").toString().trim();
     const service = (data.get("service") || "Welding").toString().trim();
     const location = (data.get("location") || "").toString().trim();
     const details = (data.get("details") || "").toString().trim();

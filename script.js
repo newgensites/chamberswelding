@@ -568,12 +568,23 @@ if (adminRequestForm) {
   });
 }
 
-function renderAdminAvailability() {
+function renderAdminAvailability(options = {}) {
   if (!adminDateInput || !adminSlots || !adminClosed) return;
+  const { preserveSelection = false, useCurrentClosed = false } = options;
+
   const key = adminDateInput.value;
   if (!key) return;
+
+  const existingSelection = preserveSelection
+    ? Array.from(adminSlots.querySelectorAll("input[type=\"checkbox\"]"))
+        .filter(input => input.checked)
+        .map(input => input.value)
+    : [];
+
   const override = bookingControls.overrides[key] || {};
-  adminClosed.checked = Boolean(override.closed);
+  const closed = useCurrentClosed ? adminClosed.checked : Boolean(override.closed);
+
+  adminClosed.checked = closed;
   adminSlots.innerHTML = "";
 
   bookingControls.baseSlots.forEach(slot => {
@@ -583,8 +594,10 @@ function renderAdminAvailability() {
     const checkbox = document.createElement("input");
     checkbox.type = "checkbox";
     checkbox.value = slot;
-    checkbox.checked = (override.booked || []).includes(slot) || Boolean(override.closed);
-    checkbox.disabled = adminClosed.checked;
+
+    const bookedSlots = override.booked || [];
+    checkbox.checked = closed || bookedSlots.includes(slot) || existingSelection.includes(slot);
+    checkbox.disabled = closed;
 
     const text = document.createElement("span");
     text.textContent = formatTimeLabel(slot);
@@ -603,7 +616,7 @@ if (adminDateInput) {
 
 if (adminClosed) {
   adminClosed.addEventListener("change", () => {
-    renderAdminAvailability();
+    renderAdminAvailability({ preserveSelection: true, useCurrentClosed: true });
   });
 }
 
